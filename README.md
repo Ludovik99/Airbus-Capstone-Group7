@@ -7,5 +7,7 @@ Group 7 is composed by: Lia Dollison, Ludovico Gandolfi, Adam Jamison, Ivan Lope
 
 The uploaded materials are:
 >Group7_PCA (The notebook relative to the PCA method and part of the data exploration, this code also backs part of the Streamlit application)
+
 >Group7_SyntheticData (The notebook relative to the generation of synthetic data and part of the data exploration)
+
 >Group7_Streamlit (This python script runs the anomaly detection tool built on Streamlit)
