@@ -37,7 +37,7 @@ def landing_page():
 #@st.cache_data(experimental_allow_widgets=True) 
 
 def input_page():
-    tab1, tab2, tab3, tab4 = st.tabs(["Scree plot", "Reconstruction Error", "Anomalies", "Visualisation"])
+    tab1, tab2, tab3 = st.tabs(["Scree plot", "Reconstruction Error", "Anomalies"])
     with tab1:
         st.header("Principal Component Analysis")
         # Sidebar select boxes
@@ -60,11 +60,16 @@ def input_page():
             else:
                 pca_data = data.drop(data[(data["FLIGHT_PHASE_COUNT"] == 1) | (data["FLIGHT_PHASE_COUNT"] == 2) | (data["FLIGHT_PHASE_COUNT"] == 12)].index)
                 pca_data.drop(small_dataset_columns, axis=1, inplace=True)
+                data_nodev = data.drop(data[(data["FLIGHT_PHASE_COUNT"] == 1) | (data["FLIGHT_PHASE_COUNT"] == 2) | (data["FLIGHT_PHASE_COUNT"] == 12)].index)
+                data_nodev.drop(['FUEL_USED_1','FUEL_USED_2','FUEL_USED_3','FUEL_USED_4'], axis=1, inplace=True)
+
                 
                 columns_to_scale = pca_data.columns
                 for column in columns_to_scale:
                     pca_data[column] = pca_data[column].diff()
+                    data_nodev[f"Dx_{column}"] = data_nodev[column].diff()
                 pca_data.dropna(inplace=True)
+                data_nodev.dropna(inplace=True)
                 scaler = RobustScaler()
                 pca_data[columns_to_scale] = scaler.fit_transform(pca_data[columns_to_scale])
         
@@ -150,7 +155,8 @@ def input_page():
         st.header("Anomalies")
         
         options_length = [10,20,30,40,50,60,70,80,90,100]
-        sequence_length = st.sidebar.selectbox("Select anomaly length (consecutive seconds):", options_length)
+        default_value = 30
+        sequence_length = st.sidebar.selectbox("Select anomaly length (consecutive seconds):", options_length, index=options_length.index(default_value))
         
         options_stdev = [0.5, 1.0, 1.5, 2.0]
         number_of_stdev = st.sidebar.selectbox("Select threshold in st. deviations for the reconstruction error:", options_stdev)
@@ -198,7 +204,7 @@ def input_page():
         current_sequence.append(negative_values[-1])
         sequences.append(current_sequence)
 
-        # Print sequences that are over 10 seconds long
+        # Print sequences that are over the defined limit of seconds long
         for seq in sequences:
             if len(seq) > sequence_length:
                 seql.append(seq)
@@ -238,17 +244,31 @@ def input_page():
                     last_time = utc_times.iloc[-1]
                     st.write(f"Start: {first_time}, end: {last_time}")
                     i += 1
-                    st.dataframe(sequence_df)
-                    st.write("---")  # Add a separator between each sequence DataFrame
+                    
+                    subset_dev = pca_data.loc[sequence]
+                    subset_og = data_nodev.loc[sequence]
 
-            #st.write("---")  # Add a separator between each flight   
+                    average_values = subset_dev.mean()
+
+                    common_flight_phase = subset_og['FLIGHT_PHASE_COUNT'].mode()
+
+                    # Calculate the average value for each feature within the subset
+                    filtered_phase = data_nodev.loc[data_nodev['FLIGHT_PHASE_COUNT']==common_flight_phase[0]]
+                    filtered_phase_index = filtered_phase.index
+                    filtered_pca = pca_data.loc[filtered_phase_index]
+
+                    original_means = filtered_pca.mean()
+
+                    diff = abs(average_values - original_means)
+                    diff = diff.drop("VALUE_FOB")
+
+                    # Find the top eatures with the largest absolute differences
+                    top_feature = diff.nlargest(1)
+                    st.write(f"Top feature causing the anomaly: {top_feature.index[0]}")
+                    st.dataframe(sequence_df)
+
+                    st.write("---")  # Add a separator between each flight   
     
-    with tab4:
-        st.header("Visualisation")
-        
-        
-        
-            
             
 # Main app
 def main():
